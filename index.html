@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>imageNgine</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%; height: 100%; overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #08080a; color: white; user-select: none; -webkit-user-select: none;
+    }
+
+    .viewport { position: relative; width: 100%; height: 100%; display: flex; flex-direction: column; }
+
+    /* Floating Utilities Header Control Deck */
+    .top-actions {
+      position: absolute; top: 12px; left: 12px; right: 12px;
+      display: flex; justify-content: space-between; z-index: 15; pointer-events: none;
+    }
+    .action-pill-box {
+      display: flex; gap: 6px; background: rgba(18, 18, 22, 0.85);
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      padding: 6px; border-radius: 30px; border: 1px solid rgba(255, 255, 255, 0.08);
+      pointer-events: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    }
+    .pill-btn {
+      background: transparent; border: none; color: white; width: 34px; height: 34px;
+      border-radius: 50%; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    }
+    .pill-btn:disabled { opacity: 0.25; cursor: not-allowed; }
+    .pill-btn.danger { color: #f87171; }
+    .info-badge {
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(18, 18, 22, 0.85); color: #9ca3af; padding: 0 12px;
+      border-radius: 30px; font-size: 11px; font-weight: 600;
+      border: 1px solid rgba(255, 255, 255, 0.08); pointer-events: auto;
+    }
+
+    /* Main Studio Canvas Space Layout */
+    .canvas-space {
+      position: relative; width: 100%; height: 100%; flex-grow: 1;
+      display: flex; align-items: center; justify-content: center; padding: 20px; padding-bottom: 70px;
+      background-color: #111;
+      background-image: linear-gradient(45deg, #16161a 25%, transparent 25%), linear-gradient(-45deg, #16161a 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #16161a 75%), linear-gradient(-45deg, transparent 75%, #16161a 75%);
+      background-size: 16px 16px;
+    }
+    .canvas-container { position: relative; max-width: 100%; max-height: 65vh; display: flex; align-items: center; justify-content: center; }
+    canvas { max-width: 100%; max-height: 60vh; object-fit: contain; box-shadow: 0 12px 48px rgba(0,0,0,0.7); touch-action: none; }
+
+    /* Launcher/Upload Screen Layer */
+    .upload-screen {
+      position: absolute; inset: 0; background: #08080a;
+      display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 25;
+    }
+    .upload-card {
+      border: 2px dashed #2e2e38; padding: 40px; border-radius: 16px; text-align: center;
+      cursor: pointer; max-width: 340px; width: 90%; transition: border-color 0.2s;
+    }
+    .upload-card:hover { border-color: #3b82f6; }
+    .upload-icon { font-size: 44px; margin-bottom: 12px; display: block; }
+    .upload-title { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+    .upload-sub { color: #6b7280; font-size: 12px; }
+
+    /* Hiding Expandable Control Panel Drawer Sheet */
+    .drawer {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: rgba(18, 18, 22, 0.95); backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
+      border-top: 1px solid rgba(255, 255, 255, 0.12); border-radius: 20px 20px 0 0; z-index: 20;
+      transform: translateY(calc(100% - 40px)); transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 0 -10px 40px rgba(0,0,0,0.6); padding: 0 16px 20px 16px;
+    }
+    .drawer.expanded { transform: translateY(0); }
+    .drawer-handle-zone { width: 100%; height: 40px; display: flex; justify-content: center; align-items: center; cursor: pointer; }
+    .drawer-notch { width: 44px; height: 5px; background: rgba(255, 255, 255, 0.3); border-radius: 3px; }
+
+    /* Tab Architecture Core Navigation Router */
+    .drawer-tabs { display: flex; border-bottom: 1px solid rgba(255, 255, 255, 0.08); margin-bottom: 12px; gap: 4px; }
+    .tab-trigger {
+      flex: 1; text-align: center; padding: 10px 0; color: #9ca3af; font-size: 11px;
+      font-weight: 600; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s;
+    }
+    .tab-trigger.active { color: #3b82f6; border-bottom-color: #3b82f6; font-weight: 700; }
+
+    .tab-content { display: none; max-height: 240px; overflow-y: auto; padding-bottom: 10px; }
+    .tab-content.active { display: block; }
+
+    /* Control Element Matrix Layout Components */
+    .options-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    @media (min-width: 480px) {
+      .options-grid { grid-template-columns: repeat(5, 1fr); }
+    }
+    .grid-card {
+      background: #1e1e24; border: 1px solid #2e2e38; border-radius: 8px; color: white;
+      padding: 10px 2px; font-size: 10px; text-align: center; cursor: pointer; display: flex;
+      flex-direction: column; align-items: center; gap: 4px; transition: background 0.15s;
+    }
+    .grid-card:hover { background: #25252e; }
+    .grid-card.active { background: #3b82f6; border-color: #60a5fa; }
+    .grid-card span { font-size: 16px; }
+
+    .slider-console { background: #141418; border-radius: 10px; padding: 12px; margin-top: 10px; display: none; border: 1px solid rgba(255,255,255,0.04); }
+    .console-header { display: flex; justify-content: space-between; color: #9ca3af; font-size: 11px; margin-bottom: 6px; font-weight: 600; align-items: center; }
+    .console-apply-btn { background: #10b981; border: none; color: white; padding: 5px 12px; border-radius: 5px; font-size: 11px; font-weight: 700; cursor: pointer; }
+      
+    .panel-block-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; background: #141418; padding: 8px 12px; border-radius: 8px; margin-bottom: 8px; }
+    .panel-prop-text { display: flex; align-items: center; gap: 6px; color: #d1d5db; font-size: 11px; font-weight: 600; }
+
+    input[type="range"], select, input[type="text"], input[type="number"] {
+      width: 100%; background: #1e1e24; border: 1px solid #2e2e38; color: white; padding: 8px; border-radius: 6px; font-size: 12px; outline: none;
+    }
+    input[type="range"] { accent-color: #3b82f6; height: 6px; padding: 0; }
+    input[type="color"] {
+      -webkit-appearance: none; border: none; width: 24px; height: 24px; border-radius: 50%; overflow: hidden; cursor: pointer; background: transparent;
+    }
+    input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+    input[type="color"]::-webkit-color-swatch { border: 1px solid white; border-radius: 50%; }
+
+    .btn-commit { background: #2563eb; color: white; font-weight: 700; border: none; padding: 12px; border-radius: 8px; font-size: 13px; cursor: pointer; width: 100%; }
+
+    /* Processing Compiler Screen Overlays */
+    .loader-overlay {
+      position: absolute; inset: 0; background: rgba(8,8,10,0.9); backdrop-filter: blur(10px);
+      display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 30;
+    }
+    .spinner { width: 36px; height: 36px; border: 4px solid rgba(255,255,255,0.1); border-top-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 12px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+  <div class="viewport">
+    
+    <!-- Upload Screen Overlay Launcher -->
+    <div class="upload-screen" id="uploadScreen">
+      <div class="upload-card" onclick="document.getElementById('studioImageLoader').click()">
+        <span class="upload-icon">💎</span>
+        <div class="upload-title">Open Target Media</div>
+        <div class="upload-sub">Select Image</div>
+        <input type="file" id="studioImageLoader" accept="image/*" style="display: none;">
+      </div>
+    </div>
+
+    <!-- Processing Monitor Screen Overlay -->
+    <div class="loader-overlay" id="studioLoaderOverlay">
+      <div class="spinner"></div>
+      <div id="loaderStatusText" style="font-size: 14px; font-weight:600; color:#3b82f6;">Processing Image Matrix...</div>
+    </div>
+
+    <!-- Quick Floating Action Controllers Headers -->
+    <div class="top-actions">
+      <div class="action-pill-box">
+        <button id="undoBtn" class="pill-btn" title="Undo Step" disabled>↩️</button>
+        <button id="redoBtn" class="pill-btn" title="Redo Step" disabled>↪️</button>
+      </div>
+      <div id="dimensionBadge" class="info-badge">0 × 0</div>
+      <div class="action-pill-box">
+        <button id="reloadOriginalBtn" class="pill-btn" title="Reload Original">🔄</button>
+        <button id="wipeResetBtn" class="pill-btn danger" title="Wipe Clear All">🗑️</button>
+      </div>
+    </div>
+
+    <!-- Main Workspace Area Canvas Surface -->
+    <div class="canvas-space">
+      <div class="canvas-container">
+        <canvas id="studioViewBoard"></canvas>
+      </div>
+    </div>
+
+    <!-- Slidable Tool Settings Configurations Drawer Panel Sheet -->
+    <div class="drawer" id="controlDrawer">
+      <div class="drawer-handle-zone" id="drawerHandle">
+        <div class="drawer-notch"></div>
+      </div>
+
+      <!-- Navigation System Router Links Panels Tabs Buttons -->
+      <div class="drawer-tabs">
+        <div class="tab-trigger active" data-target="tab-filters">🎛️ Filters (15)</div>
+        <div class="tab-trigger" data-target="tab-effects">✨ Effects (15)</div>
+        <div class="tab-trigger" data-target="tab-export">💾 Save</div>
+      </div>
+
+      <!-- TAB CONTROL CONSOLE: 15 PIXEL FILTERS -->
+      <div class="tab-content active" id="tab-filters">
+        <div class="options-grid">
+          <div class="grid-card" data-filter="gray"><span>🖤</span>Grayscale</div>
+          <div class="grid-card" data-filter="sepia"><span>📜</span>Sepia</div>
+          <div class="grid-card" data-filter="contrast"><span>🌗</span>Contrast</div>
+          <div class="grid-card" data-filter="fade"><span>☁️</span>Matte Fade</div>
+          <div class="grid-card" data-filter="neon"><span>🔮</span>Cyber Neon</div>
+          <div class="grid-card" data-filter="invert"><span>🔄</span>Invert</div>
+          <div class="grid-card" data-filter="thermal"><span>🔥</span>Thermal</div>
+          <div class="grid-card" data-filter="solarize"><span>☀️</span>Solarize</div>
+          <div class="grid-card" data-filter="noir"><span>🌑</span>High Noir</div>
+          <div class="grid-card" data-filter="vibrant"><span>🌈</span>Vibrant</div>
+          <div class="grid-card" data-filter="monochrome"><span>🏁</span>B&W Stark</div>
+          <div class="grid-card" data-filter="vintage"><span>🕰️</span>Warm Vintage</div>
+          <div class="grid-card" data-filter="cool"><span>❄️</span>Nordic Ice</div>
+          <div class="grid-card" data-filter="infrared"><span>🌿</span>Infrared Map</div>
+          <div class="grid-card" data-filter="gold"><span>🪙</span>Midas Touch</div>
+        </div>
+        <div class="slider-console" id="filterConsole">
+          <div class="console-header">
+            <span id="activeFilterLabel">Adjustment Console</span>
+            <button class="console-apply-btn" id="applyFilterBtn">Apply Filter</button>
+          </div>
+          <input type="range" id="filterSlider" min="0" max="100" value="50">
+        </div>
+      </div>
+
+      <!-- TAB CONTROL CONSOLE: 15 ARTISTIC EFFECTS -->
+      <div class="tab-content" id="tab-effects">
+        <div class="options-grid">
+          <div class="grid-card" data-fx="pixel"><span>👾</span>Pixelate</div>
+          <div class="grid-card" data-fx="noise"><span>📺</span>Static Noise</div>
+          <div class="grid-card" data-fx="blur"><span>💧</span>Gaussian Blur</div>
+          <div class="grid-card" data-fx="vignette"><span>📸</span>Vignette</div>
+          <div class="grid-card" data-fx="leak"><span>☀️</span>Color Leak</div>
+          <div class="grid-card" data-fx="oil"><span>🎨</span>Oil Glaze</div>
+          <div class="grid-card" data-fx="halftone"><span>💥</span>Halftone</div>
+          <div class="grid-card" data-fx="sketch"><span>✏️</span>Sketch</div>
+          <div class="grid-card" data-fx="scanlines"><span>📼</span>Scanlines</div>
+          <div class="grid-card" data-fx="rgbsplit"><span>🫨</span>RGB Shift</div>
+          <div class="grid-card" data-fx="duotone"><span>🔵</span>Duotone</div>
+          <div class="grid-card" data-fx="glitchbars"><span>📊</span>Data Bars</div>
+          <div class="grid-card" data-fx="posterize"><span>🖼️</span>Posterize</div>
+          <div class="grid-card" data-fx="edge"><span>⚡</span>Neon Edges</div>
+          <div class="grid-card" data-fx="bloom"><span>🔆</span>Soft Glow</div>
+        </div>
+        <div class="slider-console" id="fxConsole">
+          <div class="console-header">
+            <span id="activeFxLabel">Artistic Distortion FX</span>
+            <button class="console-apply-btn" id="applyFxBtn">Apply Effect</button>
+          </div>
+          <input type="range" id="fxSlider" min="0" max="100" value="0">
+        </div>
+      </div>
+
+      <!-- TAB CONTROL CONSOLE: SAVE ASSET SYSTEM -->
+      <div class="tab-content" id="tab-export">
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <div class="panel-block-row" style="margin:0;">
+            <div class="panel-prop-text"><span>Save Width:</span><input type="number" id="expW" style="width:75px; padding:4px;"></div>
+            <div class="panel-prop-text"><span>Height:</span><input type="number" id="expH" style="width:75px; padding:4px;" readonly></div>
+          </div>
+
+          <div class="panel-block-row" style="margin:0;">
+            <div class="panel-prop-text">
+              <span>Canvas Base Alpha:</span>
+              <select id="expBgMode" style="padding:4px; font-size:11px;">
+                <option value="transparent">Transparent Asset</option>
+                <option value="solid">Solid Color Layer</option>
+              </select>
+            </div>
+            <input type="color" id="expBgColor" value="#ffffff" style="display:none; width:24px; height:24px;">
+          </div>
+
+          <select id="expFormat">
+            <option value="image/png">Static PNG (.png)</option>
+            <option value="image/jpeg">Static JPEG (.jpg)</option>
+            <option value="image/webp">Static WebP (.webp)</option>
+          </select>
+
+          <button id="commitExportFileBtn" class="btn-commit">Generate Output File</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // Master Layer Architectures Core Pipelines Config Anchors
+    const viewCanvas = document.getElementById('studioViewBoard');
+    const viewCtx = viewCanvas.getContext('2d', { willReadFrequently: true });
+    const drawer = document.getElementById('controlDrawer');
+    const drawerHandle = document.getElementById('drawerHandle');
+    const uploadScreen = document.getElementById('uploadScreen');
+    const loaderOverlay = document.getElementById('studioLoaderOverlay');
+    const loaderStatusText = document.getElementById('loaderStatusText');
+
+    let originalSourceImage = null;
+    let backingCanvas = document.createElement('canvas'); 
+    let backingCtx = backingCanvas.getContext('2d', { willReadFrequently: true });
+
+    let undoStack = [], redoStack = [];
+    const MAX_HISTORY = 16;
+
+    let selectedFilterType = null;
+    let selectedFxType = null;
+    let filterLayerBackupSnapshot = null;
+
+    // Viewport Toggle Panel Handling
+    drawerHandle.addEventListener('click', () => drawer.classList.toggle('expanded'));
+
+    document.getElementById('studioImageLoader').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        originalSourceImage = new Image();
+        originalSourceImage.onload = function() {
+          setupImageMatrixCore(originalSourceImage);
+          uploadScreen.style.display = 'none';
+          drawer.classList.add('expanded');
+        };
+        originalSourceImage.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    function setupImageMatrixCore(img) {
+      backingCanvas.width = img.naturalWidth;
+      backingCanvas.height = img.naturalHeight;
+      backingCtx.clearRect(0, 0, backingCanvas.width, backingCanvas.height);
+      backingCtx.drawImage(img, 0, 0);
+
+      undoStack = []; redoStack = [];
+      pushHistorySnapshot();
+      synchronizeStudioView();
+    }
+
+    function pushHistorySnapshot() {
+      redoStack = []; 
+      if (undoStack.length >= MAX_HISTORY) undoStack.shift();
+      undoStack.push(backingCanvas.toDataURL());
+      updateHistoryInterfaceButtons();
+    }
+
+    function updateHistoryInterfaceButtons() {
+      document.getElementById('undoBtn').disabled = undoStack.length <= 1;
+      document.getElementById('redoBtn').disabled = redoStack.length === 0;
+      
+      const w = backingCanvas.width; const h = backingCanvas.height;
+      document.getElementById('dimensionBadge').innerText = `${w} × ${h}`;
+      document.getElementById('expW').value = w;
+      document.getElementById('expH').value = h;
+    }
+
+    function synchronizeStudioView() {
+      if (!backingCanvas.width) return;
+      viewCanvas.width = backingCanvas.width;
+      viewCanvas.height = backingCanvas.height;
+      
+      viewCtx.clearRect(0, 0, viewCanvas.width, viewCanvas.height);
+      viewCtx.drawImage(backingCanvas, 0, 0);
+    }
+
+    // Header Toolbar Top Action Event Handlers Registers
+    document.getElementById('undoBtn').addEventListener('click', () => {
+      if (undoStack.length <= 1) return;
+      discardUnsavedSandboxTweak();
+      redoStack.push(undoStack.pop());
+      restoreBackingStateFromUrl(undoStack[undoStack.length - 1]);
+    });
+
+    document.getElementById('redoBtn').addEventListener('click', () => {
+      if (redoStack.length === 0) return;
+      discardUnsavedSandboxTweak();
+      const nextState = redoStack.pop();
+      undoStack.push(nextState);
+      restoreBackingStateFromUrl(nextState);
+    });
+
+    function restoreBackingStateFromUrl(url) {
+      const img = new Image();
+      img.src = url;
+      img.onload = function() {
+        backingCanvas.width = img.width; backingCanvas.height = img.height;
+        backingCtx.clearRect(0, 0, backingCanvas.width, backingCanvas.height);
+        backingCtx.drawImage(img, 0, 0);
+        synchronizeStudioView();
+        updateHistoryInterfaceButtons();
+      };
+    }
+
+    document.getElementById('reloadOriginalBtn').addEventListener('click', () => {
+      if (originalSourceImage && confirm('Revert canvas entirely back to loaded target portrait?')) {
+        discardUnsavedSandboxTweak();
+        setupImageMatrixCore(originalSourceImage);
+      }
+    });
+
+    document.getElementById('wipeResetBtn').addEventListener('click', () => {
+      if (confirm('Wipe complete canvas memory logs clean and open launcher?')) {
+        discardUnsavedSandboxTweak();
+        originalSourceImage = null;
+        backingCanvas.width = 0; backingCanvas.height = 0;
+        viewCanvas.width = 0; viewCanvas.height = 0;
+        undoStack = []; redoStack = [];
+        document.getElementById('studioImageLoader').value = "";
+        document.getElementById('dimensionBadge').innerText = "0 × 0";
+        uploadScreen.style.display = 'flex';
+        drawer.classList.remove('expanded');
+      }
+    });
+
+    // Navigation Tab Processing Router Logic Iterators Loops
+    document.querySelectorAll('.tab-trigger').forEach(trigger => {
+      trigger.addEventListener('click', (e) => {
+        discardUnsavedSandboxTweak();
+        document.querySelectorAll('.tab-trigger').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        
+        e.target.classList.add('active');
+        const activeTabId = e.target.getAttribute('data-target');
+        document.getElementById(activeTabId).classList.add('active');
+      });
+    });
+
+    function discardUnsavedSandboxTweak() {
+      if (filterLayerBackupSnapshot) {
+        backingCtx.putImageData(filterLayerBackupSnapshot, 0, 0);
+        filterLayerBackupSnapshot = null;
+      }
+      document.getElementById('filterConsole').style.display = 'none';
+      document.getElementById('fxConsole').style.display = 'none';
+      document.querySelectorAll('.tab-content .grid-card').forEach(c => c.classList.remove('active'));
+      selectedFilterType = null; selectedFxType = null;
+      synchronizeStudioView();
+    }
+
+    // ========================================================
+    // LAYER CONFIG: 15 PIXEL FILTERS ENGINE MATRIX
+    // ========================================================
+    document.querySelectorAll('#tab-filters .grid-card').forEach(card => {
+      card.addEventListener('click', (e) => {
+        if (!filterLayerBackupSnapshot) {
+          filterLayerBackupSnapshot = backingCtx.getImageData(0, 0, backingCanvas.width, backingCanvas.height);
+        } else {
+          backingCtx.putImageData(filterLayerBackupSnapshot, 0, 0);
+        }
+        document.querySelectorAll('#tab-filters .grid-card').forEach(c => c.classList.remove('active'));
+        e.currentTarget.classList.add('active');
+
+        selectedFilterType = e.currentTarget.getAttribute('data-filter');
+        document.getElementById('activeFilterLabel').innerText = `Tuning Channel: ${selectedFilterType.toUpperCase()}`;
+        
+        const slider = document.getElementById('filterSlider');
+        slider.min = 0; slider.max = 100; slider.value = 50;
+        document.getElementById('filterConsole').style.display = 'block';
+        applyLiveFilterCalculation(50);
+      });
+    });
+
+    document.getElementById('filterSlider').addEventListener('input', (e) => {
+      applyLiveFilterCalculation(parseInt(e.target.value, 10));
+    });
+
+    function applyLiveFilterCalculation(value) {
+      if (!filterLayerBackupSnapshot) return;
+      backingCtx.putImageData(filterLayerBackupSnapshot, 0, 0);
+      
+      const imgData = backingCtx.getImageData(0, 0, backingCanvas.width, backingCanvas.height);
+      const d = imgData.data;
+      const scalar = value / 100;
+
+      for (let i = 0; i < d.length; i += 4) {
+        let r = d[i], g = d[i+1], b = d[i+2];
+
+        if (selectedFilterType === 'gray') {
+          let grey = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+          d[i] = r + (grey - r) * scalar; d[i+1] = g + (grey - g) * scalar; d[i+2] = b + (grey - b) * scalar;
+        } 
+        else if (selectedFilterType === 'sepia') {
+          let sr = (r * 0.393) + (g * 0.769) + (b * 0.189);
+          let sg = (r * 0.349) + (g * 0.686) + (b * 0.168);
+          let sb = (r * 0.272) + (g * 0.534) + (b * 0.131);
+          d[i] = r + (sr - r) * scalar; d[i+1] = g + (sg - g) * scalar; d[i+2] = b + (sb - b) * scalar;
+        }
+        else if (selectedFilterType === 'contrast') {
+          let adj = (value - 50) * 2;
+          let factor = (259 * (adj + 255)) / (255 * (259 - adj));
+          d[i] = factor * (r - 128) + 128; d[i+1] = factor * (g - 128) + 128; d[i+2] = factor * (b - 128) + 128;
+        }
+        else if (selectedFilterType === 'fade') {
+          d[i] = r * (1 - scalar * 0.3) + (scalar * 40); d[i+1] = g * (1 - scalar * 0.3) + (scalar * 40); d[i+2] = b * (1 - scalar * 0.2) + (scalar * 50);
+        }
+        else if (selectedFilterType === 'neon') {
+          d[i] = r * scalar; d[i+1] = g * (1 - scalar); d[i+2] = b * scalar + (scalar * 100);
+        }
+        else if (selectedFilterType === 'invert') {
+          d[i] = r + ((255 - r) - r) * scalar; d[i+1] = g + ((255 - g) - g) * scalar; d[i+2] = b + ((255 - b) - b) * scalar;
+        }
+        else if (selectedFilterType === 'thermal') {
+          let l = (r + g + b) / 3;
+          d[i] = r + ((l * 1.5) - r) * scalar; d[i+1] = g + ((255 - l) - g) * scalar; d[i+2] = b + ((255 - Math.abs(128 - l) * 2) - b) * scalar;
+        }
+        else if (selectedFilterType === 'solarize') {
+          let threshold = scalar * 255;
+          d[i] = r > threshold ? 255 - r : r; d[i+1] = g > threshold ? 255 - g : g; d[i+2] = b > threshold ? 255 - b : b;
+        }
+        else if (selectedFilterType === 'noir') {
+          let v = 0.3 * r + 0.59 * g + 0.11 * b;
+          let th = v > (scalar * 255) ? 230 : 20;
+          d[i] = r + (th - r) * scalar; d[i+1] = g + (th - g) * scalar; d[i+2] = b + (th - b) * scalar;
+        }
+        else if (selectedFilterType === 'vibrant') {
+          let max = Math.max(r, g, b); let min = Math.min(r, g, b);
+          let l = (max + min) / 2;
+          if (max !== min) {
+            let factor = 1.0 + scalar * 2.0;
+            d[i] = Math.min(255, Math.max(0, l + (r - l) * factor));
+            d[i+1] = Math.min(255, Math.max(0, l + (g - l) * factor));
+            d[i+2] = Math.min(255, Math.max(0, l + (b - l) * factor));
+          }
+        }
+        else if (selectedFilterType === 'monochrome') {
+          let l = 0.299 * r + 0.587 * g + 0.114 * b;
+          let bThreshold = l > (scalar * 255) ? 255 : 0;
+          d[i] = r + (bThreshold - r) * scalar; d[i+1] = g + (bThreshold - g) * scalar; d[i+2] = b + (bThreshold - b) * scalar;
+        }
+        else if (selectedFilterType === 'vintage') {
+          d[i] = r + ((r * 1.2 + 15) - r) * scalar; d[i+1] = g + ((g * 1.0 + 10) - g) * scalar; d[i+2] = b + ((b * 0.8 - 10) - b) * scalar;
+        }
+        else if (selectedFilterType === 'cool') {
+          d[i] = r + ((r * 0.8 - 10) - r) * scalar; d[i+1] = g + ((g * 1.0 + 5) - g) * scalar; d[i+2] = b + ((b * 1.3 + 20) - b) * scalar;
+        }
+        else if (selectedFilterType === 'infrared') {
+          let val = 255 - r;
+          d[i] = r + (val - r) * scalar; d[i+1] = g + ((g * 0.2) - g) * scalar; d[i+2] = b + ((b * 0.5) - b) * scalar;
+        }
+        else if (selectedFilterType === 'gold') {
+          let l = (r + g + b) / 3;
+          d[i] = r + ((l * 1.3) - r) * scalar; d[i+1] = g + ((l * 1.0) - g) * scalar; d[i+2] = b + ((l * 0.4) - b) * scalar;
+        }
+      }
+
+      backingCtx.putImageData(imgData, 0, 0);
+      synchronizeStudioView();
+    }
+
+    document.getElementById('applyFilterBtn').addEventListener('click', () => {
+      pushHistorySnapshot();
+      filterLayerBackupSnapshot = null;
+      document.getElementById('filterConsole').style.display = 'none';
+      document.querySelectorAll('#tab-filters .grid-card').forEach(c => c.classList.remove('active'));
+      selectedFilterType = null;
+    });
+
+    // ========================================================
+    // LAYER CONFIG: 15 ARTISTIC EFFECTS CORE ENGINE
+    // ========================================================
+    document.querySelectorAll('#tab-effects .grid-card').forEach(card => {
+      card.addEventListener('click', (e) => {
+        if (!filterLayerBackupSnapshot) {
+          filterLayerBackupSnapshot = backingCtx.getImageData(0, 0, backingCanvas.width, backingCanvas.height);
+        } else {
+          backingCtx.putImageData(filterLayerBackupSnapshot, 0, 0);
+        }
+        document.querySelectorAll('#tab-effects .grid-card').forEach(c => c.classList.remove('active'));
+        e.currentTarget.classList.add('active');
+
+        selectedFxType = e.currentTarget.getAttribute('data-fx');
+        document.getElementById('activeFxLabel').innerText = `FX Vector: ${selectedFxType.toUpperCase()}`;
+        
+        const slider = document.getElementById('fxSlider');
+        slider.min = 1; slider.max = 100; slider.value = 25;
+        
+        document.getElementById('fxConsole').style.display = 'block';
+        applyLiveFxDistortion(25);
+      });
+    });
+
+    document.getElementById('fxSlider').addEventListener('input', (e) => {
+      applyLiveFxDistortion(parseInt(e.target.value, 10));
+    });
+
+    function applyLiveFxDistortion(value) {
+      if (!filterLayerBackupSnapshot) return;
+      backingCtx.putImageData(filterLayerBackupSnapshot, 0, 0);
+      
+      const w = backingCanvas.width; const h = backingCanvas.height;
+
+      if (selectedFxType === 'pixel') {
+        let size = Math.max(2, Math.floor(value * 0.4));
+        const imgData = backingCtx.getImageData(0, 0, w, h);
+        const d = imgData.data;
+        backingCtx.clearRect(0,0,w,h);
+        for (let y = 0; y < h; y += size) {
+          for (let x = 0; x < w; x += size) {
+            let i = (y * w + x) * 4;
+            backingCtx.fillStyle = `rgba(${d[i]}, ${d[i+1]}, ${d[i+2]}, ${d[i+3]/255})`;
+            backingCtx.fillRect(x, y, size, size);
+          }
+        }
+      } 
+      else if (selectedFxType === 'noise') {
+        const imgData = backingCtx.getImageData(0, 0, w, h);
+        const d = imgData.data;
+        let amt = value * 2.5;
+        for (let i = 0; i < d.length; i += 4) {
+          let n = (Math.random() - 0.5) * amt;
+          d[i] = Math.min(255, Math.max(0, d[i] + n));
+          d[i+1] = Math.min(255, Math.max(0, d[i+1] + n));
+          d[i+2] = Math.min(255, Math.max(0, d[i+2] + n));
+        }
+        backingCtx.putImageData(imgData, 0, 0);
+      }
+      else if (selectedFxType === 'blur') {
+        backingCtx.save(); 
+        backingCtx.filter = `blur(${value * 0.25}px)`;
+        backingCtx.drawImage(backingCanvas, 0, 0); 
+        backingCtx.restore();
+      }
+      else if (selectedFxType === 'vignette') {
+        let alpha = value / 100;
+        let grad = backingCtx.createRadialGradient(w/2, h/2, w/4, w/2, h/2, w * 0.75);
+        grad.addColorStop(0, 'transparent'); grad.addColorStop(1, `rgba(0,0,0,${alpha})`);
+        backingCtx.fillStyle = grad; backingCtx.fillRect(0,0,w,h);
+      }
+      else if (selectedFxType === 'leak') {
+        let alpha = value / 100;
+        let grad = backingCtx.createLinearGradient(0,0,w,h);
+        grad.addColorStop(0, `rgba(244,63,94,${alpha * 0.8})`); 
+        grad.addColorStop(0.5, `rgba(249,115,22,${alpha * 0.4})`);
+        grad.addColorStop(1, 'transparent');
+        backingCtx.fillStyle = grad; backingCtx.fillRect(0,0,w,h);
+      }
+      else if (selectedFxType === 'oil') {
+        let size = Math.max(2, Math.floor(value * 0.15));
+        const imgData = backingCtx.getImageData(0, 0, w, h);
+        const d = imgData.data;
+        backingCtx.clearRect(0,0,w,h);
+        for (let y = 0; y < h; y += size) {
+          for (let x = 0; x < w; x += size) {
+            let i = (y * w + x) * 4;
+            let r = Math.floor(d[i]/32)*32; let g = Math.floor(d[i+1]/32)*32; let b = Math.floor(d[i+2]/32)*32;
+            backingCtx.fillStyle = `rgb(${r},${g},${b})`;
+            backingCtx.beginPath();
+            backingCtx.arc(x + size/2, y + size/2, size * 0.9, 0, Math.PI*2);
+            backingCtx.fill();
+          }
+        }
+      }
+      else if (selectedFxType === 'halftone') {
+        let size = Math.max(4, Math.floor(value * 0.25));
+        const imgData = backingCtx.getImageData(0, 0, w, h);
+        const d = imgData.data;
+        backingCtx.fillStyle = '#050508'; backingCtx.fillRect(0,0,w,h);
+        backingCtx.fillStyle = '#ffffff';
+        for (let y = 0; y < h; y += size) {
+          for (let x = 0; x < w; x += size) {
+            let i = (y * w + x) * 4;
+            let l = 0.2126 * d[i] + 0.7152 * d[i+1] + 0.0722 * d[i+2];
+            let rad = (l / 255) * (size * 0.7);
+            backingCtx.beginPath();
+            backingCtx.arc(x + size/2, y + size/2, rad, 0, Math.PI*2);
+            backingCtx.fill();
+          }
+        }
+      }
+      else if (selectedFxType === 'sketch') {
+        const imgData = backingCtx.getImageData(0, 0, w, h);
+        const d = imgData.data;
+        const outData = backingCtx.createImageData(w, h);
+        const outD = outData.data;
+        let threshold = (101 - value) * 1.5;
+        
+        for (let y = 1; y < h - 1; y++) {
+          for (let x = 1; x < w - 1; x++) {
+            let idx = (y * w + x) * 4;
+            let lCenter = (d[idx] + d[idx+1] + d[idx+2])/3;
+            let lRight = (d[idx + 4] + d[idx+5] + d[idx+6])/3;
+            let lBottom = (d[idx + (w * 4)] + d[idx + (w * 4) + 1] + d[idx + (w * 4) + 2])/3;
+            
+            let hEdge = Math.abs(lCenter - lRight);
+            let vEdge = Math.abs(lCenter - lBottom);
+            
+            let c = (hEdge + vEdge) > threshold ? 30 : 245;
+            outD[idx] = c; outD[idx+1] = c; outD[idx+2] = c; outD[idx+3] = 255;
+          }
+        }
+        backingCtx.putImageData(outData, 0, 0);
+      }
+      else if (selectedFxType === 'scanlines') {
+        let size = Math.max(2, Math.floor(value * 0.08));
+        let alpha = value / 120;
+        backingCtx.fillStyle = `rgba(0,0,0,${alpha})`;
+        for(let y=0; y<h; y+=size) {
+          backingCtx.fillRect(0, y, w, size / 2);
+        }
+      }
+      else if (selectedFxType === 'rgbsplit') {
+        let shift = Math.floor(value * 0.25);
+        if (shift > 0) {
+          const imgData = backingCtx.getImageData(0, 0, w, h);
+          const outData = backingCtx.getImageData(0, 0, w, h);
+          const src = imgData.data;
+          const dst = outData.data;
+          for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+              let i = (y * w + x) * 4;
+              let xR = Math.min(w - 1, x + shift);
+              let xB = Math.max(0, x - shift);
+              dst[i] = src[(y * w + xR) * 4];
+              dst[i+2] = src[(y * w + xB) * 4 + 2];
+            }
+          }
+          backingCtx.putImageData(outData, 0, 0);
+        }
+      }
+      else if (selectedFxType === 'duotone') {
+        const imgData = backingCtx.getImageData(0, 0, w, h);
+        const d = imgData.data;
+        let mix = value / 100;
+        for(let i=0; i<d.length; i+=4) {
+          let l = 0.2126 * d[i] + 0.7152 * d[i+1] + 0.0722 * d[i+2];
+          let r1 = (l * 0.1), g1 = (l * 0.2), b1 = (l * 0.8); 
+          let r2 = (255 - (255-l)*0.9), g2 = (255 - (255-l)*0.1), b2 = (255 - (255-l)*0.2);
+          let targetR = l < 128 ? r1 : r2;
+          let targetG = l < 128 ? g1 : g2;
+          let targetB = l < 128 ? b1 : b2;
+          d[i] = d[i] + (targetR - d[i]) * mix;
+          d[i+1] = d[i+1] + (targetG - d[i+1]) * mix;
+          d[i+2] = d[i+2] + (targetB - d[i+2]) * mix;
+        }
+        backingCtx.putImageData(imgData, 0, 0);
+      }
+      else if (selectedFxType === 'glitchbars') {
+        let barsCount = Math.floor(value * 0.15);
+        backingCtx.save();
+        for(let b=0; b<barsCount; b++) {
+          let barH = Math.floor(Math.random() * (h * 0.05)) + 4;
+          let barY = Math.floor(Math.random() * (h - barH));
+          let shiftX = Math.floor((Math.random() - 0.5) * (value * 0.8));
+          backingCtx.drawImage(backingCanvas, 0, barY, w, barH, shiftX, barY, w, barH);
+        }
+        backingCtx.restore();
+      }
+      else if (selectedFxType === 'posterize') {
+        let levels = Math.max(2, Math.floor(16 - (value * 0.14)));
+        const imgData = backingCtx.getImageData(0, 0, w, h);
+        const d = imgData.data;
+        let step = 255 / (levels - 1);
+        for(let i=0; i<d.length; i+=4) {
+          d[i] = Math.round(d[i] / step) * step;
+          d[i+1] = Math.round(d[i+1] / step) * step;
+          d[i+2] = Math.round(d[i+2] / step) * step;
+        }
+        backingCtx.putImageData(imgData, 0, 0);
+      }
+      else if (selectedFxType === 'edge') {
+        const imgData = backingCtx.getImageData(0, 0, w, h);
+        const d = imgData.data;
+        const outData = backingCtx.createImageData(w, h);
+        const outD = outData.data;
+        let threshold = (101 - value) * 0.8;
+        for (let y = 1; y < h - 1; y++) {
+          for (let x = 1; x < w - 1; x++) {
+            let idx = (y * w + x) * 4;
+            let lC = (d[idx]+d[idx+1]+d[idx+2])/3;
+            let lR = (d[idx+4]+d[idx+5]+d[idx+6])/3;
+            let lB = (d[idx+(w*4)]+d[idx+(w*4)+1]+d[idx+(w*4)+2])/3;
+            let edge = Math.abs(lC - lR) + Math.abs(lC - lB);
+            if(edge > threshold) {
+              outD[idx] = 59; outD[idx+1] = 130; outD[idx+2] = 246; outD[idx+3] = 255;
+            } else {
+              outD[idx] = d[idx]*0.1; outD[idx+1] = d[idx+1]*0.1; outD[idx+2] = d[idx+2]*0.1; outD[idx+3] = 255;
+            }
+          }
+        }
+        backingCtx.putImageData(outData, 0, 0);
+      }
+      else if (selectedFxType === 'bloom') {
+        let size = Math.floor(value * 0.15);
+        backingCtx.save();
+        backingCtx.globalCompositeOperation = 'screen';
+        backingCtx.globalAlpha = value / 150;
+        backingCtx.filter = `blur(${size}px) brightness(1.2)`;
+        backingCtx.drawImage(backingCanvas, 0, 0);
+        backingCtx.restore();
+      }
+
+      synchronizeStudioView();
+    }
+
+    document.getElementById('applyFxBtn').addEventListener('click', () => {
+      pushHistorySnapshot();
+      filterLayerBackupSnapshot = null;
+      document.getElementById('fxConsole').style.display = 'none';
+      document.querySelectorAll('#tab-effects .grid-card').forEach(c => c.classList.remove('active'));
+      selectedFxType = null;
+    });
+
+    // ========================================================
+    // PIPELINE COMPILER: HIGH-RES LAYER EXPORT MATRIX SYSTEMS
+    // ========================================================
+    document.getElementById('expBgMode').addEventListener('change', (e) => {
+      document.getElementById('expBgColor').style.display = e.target.value === 'solid' ? 'block' : 'none';
+    });
+
+    document.getElementById('commitExportFileBtn').addEventListener('click', async () => {
+      if (!originalSourceImage) return;
+      
+      const format = document.getElementById('expFormat').value;
+      const targetW = parseInt(document.getElementById('expW').value, 10) || backingCanvas.width;
+      let aspect = backingCanvas.height / backingCanvas.width;
+      const targetH = Math.round(targetW * aspect);
+
+      loaderOverlay.style.display = 'flex';
+      loaderStatusText.innerText = `Compiling High-Res Output...`;
+      
+      setTimeout(() => {
+        let outCanvas = document.createElement('canvas');
+        outCanvas.width = targetW; outCanvas.height = targetH;
+        let outCtx = outCanvas.getContext('2d');
+
+        const bgMode = document.getElementById('expBgMode').value;
+        const customColor = document.getElementById('expBgColor').value;
+
+        if (format === 'image/jpeg') {
+          outCtx.fillStyle = bgMode === 'solid' ? customColor : '#ffffff';
+          outCtx.fillRect(0, 0, targetW, targetH);
+        } else if (bgMode === 'solid') {
+          outCtx.fillStyle = customColor;
+          outCtx.fillRect(0, 0, targetW, targetH);
+        }
+
+        outCtx.drawImage(viewCanvas, 0, 0, targetW, targetH);
+
+        let ext = format.split('/')[1]; if (ext === 'jpeg') ext = 'jpg';
+        let dl = document.createElement('a');
+        dl.download = `matrix_export_${Date.now()}.${ext}`;
+        dl.href = outCanvas.toDataURL(format, 0.94);
+        dl.click();
+
+        loaderOverlay.style.display = 'none';
+      }, 50);
+    });
+  </script>
+</body>
+</html>
