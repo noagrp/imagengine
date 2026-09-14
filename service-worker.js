@@ -1,50 +1,5 @@
-const CACHE_NAME = 'imagengine-v1';
-const APP_SHELL = [
-  './',
-  './index.html',
-  './engine.html',
-  './manifest.webmanifest?v=1',
-  './favicon-32x32.png?v=1',
-  './icon-192.png?v=1',
-  './icon-512.png?v=1',
-  './apple-touch-icon.png?v=1'
-];
-
-self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL)));
-  self.skipWaiting();
-});
-
-self.addEventListener('activate', event => {
-  event.waitUntil(
-    caches.keys().then(keys => Promise.all(keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))))
-  );
-  self.clients.claim();
-});
-
-self.addEventListener('fetch', event => {
-  const request = event.request;
-  if (request.method !== 'GET') return;
-  const url = new URL(request.url);
-
-  if (request.mode === 'navigate') {
-    event.respondWith(
-      fetch(request).then(response => {
-        const copy = response.clone();
-        caches.open(CACHE_NAME).then(cache => cache.put(request, copy));
-        return response;
-      }).catch(() => caches.match(request).then(hit => hit || caches.match('./index.html')))
-    );
-    return;
-  }
-
-  if (url.origin === self.location.origin) {
-    event.respondWith(
-      caches.match(request).then(hit => hit || fetch(request).then(response => {
-        const copy = response.clone();
-        caches.open(CACHE_NAME).then(cache => cache.put(request, copy));
-        return response;
-      }))
-    );
-  }
-});
+const CACHE_NAME='imagengine-v2';
+const APP_SHELL=['./','./index.html','./engine.html','./enhancements.js?v=2','./manifest.webmanifest?v=2','./favicon-32x32.png?v=2','./icon-192.png?v=2','./icon-512.png?v=2','./apple-touch-icon.png?v=2'];
+self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE_NAME).then(c=>c.addAll(APP_SHELL)));self.skipWaiting();});
+self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE_NAME).map(k=>caches.delete(k)))));self.clients.claim();});
+self.addEventListener('fetch',e=>{const r=e.request;if(r.method!=='GET')return;const u=new URL(r.url);if(r.mode==='navigate'){e.respondWith(fetch(r).then(res=>{const copy=res.clone();caches.open(CACHE_NAME).then(c=>c.put(r,copy));return res;}).catch(()=>caches.match(r).then(hit=>hit||caches.match('./index.html'))));return;}if(u.origin===self.location.origin){e.respondWith(caches.match(r).then(hit=>hit||fetch(r).then(res=>{const copy=res.clone();caches.open(CACHE_NAME).then(c=>c.put(r,copy));return res;})));}});
