@@ -59,7 +59,7 @@
     const W=backingCanvas.width,H=backingCanvas.height;
     if(selectedFxType==='mosaic'){
       const size=Math.max(5,Math.floor(value*.35)),src=backingCtx.getImageData(0,0,W,H).data;backingCtx.clearRect(0,0,W,H);
-      for(let y=0;y<H;y+=size)for(let x=0;x<W;x+=size){const sx=Math.min(W-1,x+size>>1),sy=Math.min(H-1,y+size>>1),i=(sy*W+sx)*4,lift=((x/size+y/size)%2===0)?12:-8;backingCtx.fillStyle=`rgba(${clamp(src[i]+lift)},${clamp(src[i+1]+lift)},${clamp(src[i+2]+lift)},${src[i+3]/255})`;backingCtx.fillRect(x,y,size-1,size-1)}
+      for(let y=0;y<H;y+=size)for(let x=0;x<W;x+=size){const sx=Math.min(W-1,x+Math.floor(size/2)),sy=Math.min(H-1,y+Math.floor(size/2)),i=(sy*W+sx)*4,lift=((x/size+y/size)%2===0)?12:-8;backingCtx.fillStyle=`rgba(${clamp(src[i]+lift)},${clamp(src[i+1]+lift)},${clamp(src[i+2]+lift)},${src[i+3]/255})`;backingCtx.fillRect(x,y,size-1,size-1)}
     }else if(selectedFxType==='grain'){
       const img=backingCtx.getImageData(0,0,W,H),p=img.data,amt=value*1.6;for(let i=0;i<p.length;i+=4){const n=(Math.random()-.5)*amt;p[i]=clamp(p[i]+n);p[i+1]=clamp(p[i+1]+n);p[i+2]=clamp(p[i+2]+n)}backingCtx.putImageData(img,0,0);
     }else if(selectedFxType==='smear'){
