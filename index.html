@@ -24,7 +24,7 @@
       const doc=this.contentDocument;
       if(!doc||doc.querySelector('script[data-imagengine-enhancements]'))return;
       const script=doc.createElement('script');
-      script.src='./enhancements.js?v=2';
+      script.src='./enhancements.js?v=3';
       script.dataset.imagengineEnhancements='1';
       doc.body.appendChild(script);
     });
